@@ -12,19 +12,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up SSH
+        env:
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
           echo "$EC2_SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+      - name: Debug host variable
+        run: echo "Deploying to ${{ secrets.EC2_HOST }}"
+
       - name: Deploy app with Docker Compose
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ubuntu
         run: |
-          echo "Deploying app to $EC2_HOST..."
-          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/app
-          ssh -i key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
-            cd /home/${EC2_USER}/app &&
+          echo "Deploying app to ${{ secrets.EC2_HOST }}..."
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/app
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} "
+            cd /home/ubuntu/app &&
             sudo docker compose down &&
             sudo docker compose up -d --build
           "
