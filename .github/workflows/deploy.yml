@@ -11,22 +11,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up SSH
+      # ---------- SSH Key ----------
+      - name: Set up SSH key
         env:
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
           echo "$EC2_SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+      # ---------- Debug ----------
       - name: Debug host variable
-        run: echo "Deploying to ${{ secrets.EC2_HOST }}"
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: echo "Deploying to $EC2_HOST"
 
-      - name: Deploy app with Docker Compose
+      # ---------- Upload and run cloud-init ----------
+      - name: Run cloud-init on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ubuntu
         run: |
-          echo "Deploying app to ${{ secrets.EC2_HOST }}..."
-          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/app
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} "
-            cd /home/ubuntu/app &&
-            sudo docker compose down &&
+          echo "📦 Uploading and running cloud-init.sh.tpl on $EC2_HOST..."
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" infra/cloud-init.sh.tpl ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/cloud-init.sh
+          
+          ssh -i key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+            set -e
+            echo "🚀 Running cloud-init.sh..."
+            chmod +x ~/cloud-init.sh
+            sudo bash ~/cloud-init.sh
+            echo "✅ cloud-init completed!"
+          EOF
+
+      # ---------- Deploy app ----------
+      - name: Deploy app with Docker Compose
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ubuntu
+        run: |
+          echo "🚀 Deploying app to $EC2_HOST..."
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/app
+          
+          ssh -i key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+            set -e
+            cd /home/ubuntu/app
+            echo "🧹 Stopping old containers..."
+            sudo docker compose down || true
+            echo "🔧 Building and starting containers..."
             sudo docker compose up -d --build
-          "
+            echo "✅ Deployment finished!"
+          EOF
