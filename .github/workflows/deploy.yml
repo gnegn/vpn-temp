@@ -1,28 +1,30 @@
-name: Deploy to AWS EC2
+name: Deploy to EC2
 
 on:
-    workflow_dispatch
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.8.5
-          
-      - name: Deploy App to EC2
-        env:
-          EC2_USER: ubuntu
-          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      - name: Set up SSH
         run: |
           echo "$EC2_SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ${EC2_USER}@${EC2_IP}:/home/${EC2_USER}/app
-          ssh -i key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} "cd /home/${EC2_USER}/app && sudo docker compose up -d --build"
 
+      - name: Deploy app with Docker Compose
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ubuntu
+        run: |
+          echo "Deploying app to $EC2_HOST..."
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" app/ ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/app
+          ssh -i key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
+            cd /home/${EC2_USER}/app &&
+            sudo docker compose down &&
+            sudo docker compose up -d --build
+          "

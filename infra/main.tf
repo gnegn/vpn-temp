@@ -81,3 +81,7 @@ output "public_ip" {
 output "public_dns" {
   value = aws_instance.web.public_dns
 }
+
+output "connect_via_SSH" {
+  value = "ssh -i gh-ec2-key ubuntu@${aws_instance.web.public_dns}"
+}
