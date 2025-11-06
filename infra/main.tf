@@ -36,6 +36,13 @@ resource "aws_security_group" "web_sg" {
   name   = "${var.project_name}-sg"
 
   ingress {
+    from_port   = 1194
+    to_port     = 1194
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"

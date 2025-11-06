@@ -8,8 +8,6 @@ def public():
 
 @app.route("/private")
 def private():
-    if request.remote_addr not in ("127.0.0.1", "::1"):
-        return jsonify(error="Access denied"), 403
     return jsonify(secret="This is a private endpoint."), 200
 
 if __name__ == "__main__":
